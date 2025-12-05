@@ -5,11 +5,10 @@ from database.crud import Crud
 from keyboards.admin_keyboards import *
 from aiogram import F
 from aiogram.filters import BaseFilter
-from states.effect import AddNewBook, DeleteBook
-from states.lesson_manager import AddNewLesson
-from states.lesson_manager import AddLessonContent
+from states.effect import AddNewBook, DeleteBook, AcceptOrder
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
+from aiogram.utils.media_group import MediaGroupBuilder
 import asyncio
 
 
@@ -28,7 +27,7 @@ class IsAdmin(BaseFilter):
         
 @dp.message(Command('admin'), IsAdmin())
 async def admin_handler(message: Message, state: FSMContext = None):
-    sent_message = await message.answer("Добро пожаловать, в админ панель!", reply_markup=await on_admin_start_kb())
+    await message.answer("Добро пожаловать, в админ панель!", reply_markup=await on_admin_start_kb())
 
 @dp.callback_query(F.data == 'admin_start', IsAdmin())
 async def admin_start(message: Message, state: FSMContext = None):
@@ -150,8 +149,11 @@ async def accept_order(callback: CallbackQuery, state: FSMContext = None):
     order = crud.get_order(order_id)
     user_chat = crud.get_user(order.user_tid).chat_id
     files_id = crud.get_book(order.book_uid).file_ids    
+    media_group = MediaGroupBuilder()
+    for i in files_id:
+        media_group.add_document(i)
     await bot.send_message(chat_id=user_chat, text=f"Ваш заказ принят. Номер заказа: {order_id}")
-    await bot.send_media_group(chat_id=user_chat, media=files_id)
+    await bot.send_media_group(chat_id=user_chat, media=media_group.build())
     await callback.message.answer("Заказ успешно принят.", reply_markup=await on_admin_start_kb())
     await state.clear()
 
@@ -159,8 +161,35 @@ async def accept_order(callback: CallbackQuery, state: FSMContext = None):
 @dp.callback_query(F.data == 'decline_order', IsAdmin())
 async def decline_order(callback: CallbackQuery, state: FSMContext = None):
     order_id = await state.get_value('order_id')
-    crud.update_order(order_id, "Отклонён")
     order = crud.get_order(order_id)
-    await bot.send_message(chat_id=order.user_id, text=f"Ваш заказ отклонён. Номер заказа: {order_id}")
+    crud.update_order(order_id, "Отклонён")
+    user_chat = crud.get_user(order.user_tid).chat_id
+    await bot.send_message(chat_id=user_chat, text=f"Ваш заказ принят. Номер заказа: {order_id}")
     await callback.message.answer("Заказ успешно отклонён.", reply_markup=await on_admin_start_kb())
     await state.clear()
+
+#LIST OF ORDERS
+@dp.message(F.text.lower() == 'список заказов', IsAdmin())
+async def show_orders(message: Message, state: FSMContext = None):
+    orders = crud.get_all_orders()
+    text = "Список заказов:\n"
+    for order in orders:
+        text += f"👤 Пользователь: @{crud.get_user(order.user_tid).tusername} - {order.user_tid}\n"
+        text += f"🆔 Номер заказа: {order.comment}\n"
+        text += f"📚 Книга: {crud.get_book(order.book_uid).title}\n"
+        text += f"💰 Сумма: {order.price}\n"
+        text += f"📆 Дата создания: {order.created_at}\n"
+        text += f"Статус: {order.status}\n"
+        text += "\n"
+    await message.answer(text, reply_markup=await on_admin_start_kb())
+
+@dp.message(F.reply_to_message == True)
+async def reply_to_question(message: Message, state: FSMContext = None):
+    print('1')
+    if message.reply_to_message:
+        print('2')
+        uid = message.reply_to_message.text.split('\n')[1]
+        question = crud.get_question(uid)
+        bot.send_message(chat_id=question.chat_id, text=message.text)
+        print('3')
+    print('4')

@@ -110,7 +110,7 @@ class OrderManager:
     def __init__(self):
         pass
 
-    def get_orders(self):
+    def get_all_orders(self):
         try:
             ensure_session_ready()
             orders = session.query(Orders).all()
@@ -203,10 +203,10 @@ class QuestionManager:
             session.rollback()
             raise e
         
-    def create_question(self, text: str, user_uid: str, tusername: str, tid: int):
+    def create_question(self, text: str, user_uid: str, tusername: str, chat_id: int):
         try:
             ensure_session_ready()
-            question = Questions(text=text, user_uid=user_uid, tusername=tusername, tid=tid)
+            question = Questions(text=text, user_uid=user_uid, tusername=tusername, chat_id=chat_id)
             session.add(question)
             session.commit()
             return question

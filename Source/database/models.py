@@ -54,7 +54,7 @@ class Questions(Base):
     text = Column(String, nullable=False)
     user_uid = Column(String, nullable=False)
     tusername = Column(String, nullable=False)
-    tid = Column(BigInteger, nullable=False)
+    chat_id = Column(BigInteger, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

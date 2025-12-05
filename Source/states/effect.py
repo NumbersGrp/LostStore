@@ -41,3 +41,6 @@ class DeleteBook(StatesGroup):
 
 class AcceptOrder(StatesGroup):
     order_id = State()
+
+class Support(StatesGroup):
+    message_id = State()

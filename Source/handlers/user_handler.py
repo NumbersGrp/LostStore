@@ -6,9 +6,7 @@ from core.bot import dp, bot
 from database.crud import Crud
 from keyboards.user_keyboards import *
 from aiogram import F
-from states.effect import ChooseBook, OrderAnswer, AcceptOrder
-from states.lesson_manager import AddNewLesson
-from states.lesson_manager import AddLessonContent
+from states.effect import ChooseBook, OrderAnswer, AcceptOrder, Support
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 import asyncio
@@ -108,7 +106,7 @@ async def buy_book(callback: CallbackQuery, state: FSMContext = None):
     text = f"📚 {book.title}\n"
     text += f"👤 Автор: {book.author}\n"
     text += f"🔸 Цена: {book.price}\n"
-    text += f"🆔 Комментарий: order_{unique_id}"
+    text += f"🆔 Комментарий: order_{unique_id}\n\n"
     text += formatted_buy_text
     await state.set_state(OrderAnswer.screenshot_id)
     await state.update_data(order_id=unique_id)
@@ -126,6 +124,7 @@ async def order_answer(message: Message, state: FSMContext = None):
     screenshot_id = message.photo[0].file_id
     await state.update_data(screenshot_id=screenshot_id)
     order_id = await state.get_value('order_id')
+
     text = "✅ Скриншот оплаты получен!\n\n"
     text += f"📚 Книга: {book_name}\n"
     text += f"💰 Сумма: {books[int(book_id)-1].price}\n"
@@ -140,7 +139,8 @@ async def order_answer(message: Message, state: FSMContext = None):
     await bot.send_photo(chat_id=admin_chat, photo=screenshot_id, caption=text1, reply_markup=await accept_order_kb())
     await message.answer(text, reply_markup=await on_start_kb())
     await state.clear()
-    await state.set_data(order_id=f"order_{order_id}")
+    await state.set_state(AcceptOrder.order_id)
+    await state.update_data(order_id=f"order_{order_id}")
 
 
 #SHOW ORDERS
@@ -161,7 +161,16 @@ async def show_orders(message: Message, state: FSMContext = None):
 @dp.callback_query(F.data == 'help')
 async def help_handler(callback: CallbackQuery, state: FSMContext = None):
     await callback.message.answer(HELP_TEXT, reply_markup=await on_start_kb())
+
 #NEEDFIX
 @dp.message(F.text.lower() == 'поддержка')
 async def support_handler(message: Message, state: FSMContext = None):
-    await message.answer(HELP_TEXT, reply_markup=await on_start_kb())
+    await message.answer('Напишите сообщение для поддержки', reply_markup=await on_start_kb())
+    await state.set_state(Support.message_id)
+
+@dp.message(StateFilter(Support.message_id))
+async def support_answer(message: Message, state: FSMContext = None):
+    admin_chat = crud.get_user(ADMIN_IDS[0]).chat_id
+    uid = crud.create_question(message.text, message.from_user.id, message.from_user.username, message.chat.id).uid
+    await bot.send_message(chat_id=admin_chat, text=f"[QUESTION]\n{uid}\n\nПользователь: @{message.from_user.username} - {message.from_user.id}\n\n{message.text}\n\nОтветьте на это сообщение, чтобы отправить ответ пользователю.")
+    await state.clear()
