@@ -23,6 +23,7 @@ class AddNewBook(StatesGroup):
     title = State()
     author = State()
     description = State()
+    description_image_ids = State()
     price = State()
     category = State()
     image_id = State()

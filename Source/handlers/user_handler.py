@@ -9,6 +9,7 @@ from aiogram import F
 from states.effect import ChooseBook, OrderAnswer, AcceptOrder, Support
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
+from aiogram.utils.media_group import MediaGroupBuilder
 import asyncio
 
 
@@ -16,6 +17,8 @@ crud = Crud()
 
 ADMIN_IDS = crud.get_all_admins()
 ADMIN_IDS = [admin.tid for admin in ADMIN_IDS]
+
+BUTTON_NAMES = ['Поддержка', 'Книги', 'Заказы', 'Контакты']
 
 WELCOME_TEXT = ''
 BUY_TEXT = ''
@@ -81,7 +84,7 @@ async def choose_book(message: Message, state: FSMContext = None):
     text += f"📂 Категория: {books[int(book_id)-1].category}\n"
     text += f"Выберите действие:"
     await state.update_data(book_id=book_id)
-    await message.answer(text, reply_markup=await book_info_kb())
+    await bot.send_photo(chat_id=message.chat.id, photo=books[int(book_id)-1].image_id, caption=text, reply_markup=await book_info_kb())
 
 @dp.callback_query(F.data == 'description')
 async def book_description(callback: CallbackQuery, state: FSMContext = None):
@@ -93,7 +96,12 @@ async def book_description(callback: CallbackQuery, state: FSMContext = None):
     books = crud.get_all_books()
     text = f"{books[int(book_id)-1].description}\n"
     text += f"Выберите действие:"
-    await callback.message.answer(text, reply_markup=await book_info_kb())
+    media_group = MediaGroupBuilder()
+    files_id = books[int(book_id)-1].desc_image_ids
+    for i in files_id:
+        media_group.add_photo(media=str(i))
+    await bot.send_media_group(chat_id=callback.message.chat.id, media=media_group.build())
+    await bot.send_message(chat_id=callback.message.chat.id, text=text, reply_markup=await book_info_kb())
 
 @dp.callback_query(F.data == 'buy_book')
 async def buy_book(callback: CallbackQuery, state: FSMContext = None):
@@ -146,6 +154,7 @@ async def order_answer(message: Message, state: FSMContext = None):
 #SHOW ORDERS
 @dp.message(F.text.lower() == 'заказы')
 async def show_orders(message: Message, state: FSMContext = None):
+    await state.clear()
     orders = crud.get_orders_by_user(message.from_user.id)
     text = "Ваши заказы:\n"
     for order in orders:
@@ -160,11 +169,12 @@ async def show_orders(message: Message, state: FSMContext = None):
 #NEEDFIX
 @dp.callback_query(F.data == 'help')
 async def help_handler(callback: CallbackQuery, state: FSMContext = None):
+    await state.clear()
     await callback.message.answer(HELP_TEXT, reply_markup=await on_start_kb())
 
-#NEEDFIX
 @dp.message(F.text.lower() == 'поддержка')
 async def support_handler(message: Message, state: FSMContext = None):
+    await state.clear()
     await message.answer('Напишите сообщение для поддержки', reply_markup=await on_start_kb())
     await state.set_state(Support.message_id)
 
@@ -172,5 +182,6 @@ async def support_handler(message: Message, state: FSMContext = None):
 async def support_answer(message: Message, state: FSMContext = None):
     admin_chat = crud.get_user(ADMIN_IDS[0]).chat_id
     uid = crud.create_question(message.text, message.from_user.id, message.from_user.username, message.chat.id).uid
+    await message.answer('Ваше сообщение отправлено. Ожидайте ответа.')
     await bot.send_message(chat_id=admin_chat, text=f"[QUESTION]\n{uid}\n\nПользователь: @{message.from_user.username} - {message.from_user.id}\n\n{message.text}\n\nОтветьте на это сообщение, чтобы отправить ответ пользователю.")
     await state.clear()

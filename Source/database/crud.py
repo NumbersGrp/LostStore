@@ -84,10 +84,10 @@ class BookManager:
             session.rollback()
             raise e
 
-    def create_book(self, title: str = '', image_id: int = 0, author: str = '', description: str = '', price: int = 0, category: str = '', file_ids: list = [], chat_id: int = 0):
+    def create_book(self, title: str = '', image_id: int = 0, author: str = '', description: str = '', description_image_ids: list = [], price: int = 0, category: str = '', file_ids: list = [], chat_id: int = 0):
         try:
             ensure_session_ready()
-            book = Books(title=title, image_id=image_id, author=author, description=description, price=price, category=category, file_ids=file_ids, chat_id=chat_id)
+            book = Books(title=title, image_id=image_id, author=author, description=description, desc_image_ids=description_image_ids, price=price, category=category, file_ids=file_ids, chat_id=chat_id)
             session.add(book)
             session.commit()
             return book

@@ -27,6 +27,7 @@ class Books(Base):
     image_id = Column(String)
     author = Column(String, nullable=False)
     description = Column(String, nullable=False)
+    desc_image_ids = Column(ARRAY(String), nullable=False)
     price = Column(Integer, nullable=False)
     category = Column(String, nullable=False)
     file_ids = Column(ARRAY(String), nullable=False)

@@ -15,6 +15,7 @@ import asyncio
 crud = Crud()
 ADMIN_IDS = crud.get_all_admins()
 ADMIN_IDS = [admin.tid for admin in ADMIN_IDS]
+media = []
 
 WELCOME_TEXT = ''
 
@@ -79,8 +80,25 @@ async def add_book_set_description(message: Message, state: FSMContext = None):
         await message.answer("Описание книги не может быть пустым. Введите описание книги:")
         return
     await state.update_data(description=description)
-    await state.set_state(AddNewBook.price)
-    await message.answer("Введите цену книги:")
+    await state.set_state(AddNewBook.description_image_ids)
+    await message.answer("Отправите изображения описания книги или напишите 'пропустить' и продолжите добавление книги.")
+
+@dp.message(StateFilter(AddNewBook.description_image_ids))
+async def add_book_set_description_image_ids(message: Message, state: FSMContext = None):
+    global media
+    try:
+        if message.text.lower() == 'пропустить':
+            await state.update_data(description_image_ids=media)
+            await state.set_state(AddNewBook.price)
+            await message.answer("Введите цену книги:")
+            media = []
+            return
+    except:
+        pass
+    if not message.photo:
+        await message.answer("Изображения описания книги не может быть пустой. Отправите изображения описания книги:")
+        return
+    media.append(message.photo[0].file_id)
 
 @dp.message(StateFilter(AddNewBook.price))
 async def add_book_set_price(message: Message, state: FSMContext = None):
@@ -114,15 +132,22 @@ async def add_book_set_image_id(message: Message, state: FSMContext = None):
 
 @dp.message(StateFilter(AddNewBook.file_ids))
 async def add_book_set_file_ids(message: Message, state: FSMContext = None):
+    global media
+    try:
+        if message.text.lower() == 'пропустить':
+            await state.update_data(file_ids=media)
+            data = await state.get_data()
+            crud.create_book(data['title'], data['image_id'], data['author'], data['description'], data['description_image_ids'], data['price'], data['category'], data['file_ids'], message.chat.id)
+            await message.answer("Книга успешно добавлена.", reply_markup=await on_admin_start_kb())
+            await state.clear()
+            return
+    except:
+        pass
     file_ids = message.document.file_id
     if not file_ids:
         await message.answer("ID PDF-файла книги не может быть пустой. Введите ID PDF-файла книги:")
         return
-    await state.update_data(file_ids=file_ids)
-    data = await state.get_data()
-    crud.create_book(data['title'],data['image_id'], data['author'], data['description'], data['price'], data['category'], [data['file_ids']], message.chat.id)
-    await message.answer("Книга успешно добавлена.", reply_markup=await on_admin_start_kb())
-    await state.clear()
+    media.append(file_ids)
 
 #DELETE BOOK SEQUENCE
 @dp.callback_query(F.data == 'delete_book', IsAdmin())
@@ -183,13 +208,15 @@ async def show_orders(message: Message, state: FSMContext = None):
         text += "\n"
     await message.answer(text, reply_markup=await on_admin_start_kb())
 
-@dp.message(F.reply_to_message == True)
+@dp.message(F.reply_to_message != None)
 async def reply_to_question(message: Message, state: FSMContext = None):
     print('1')
     if message.reply_to_message:
         print('2')
         uid = message.reply_to_message.text.split('\n')[1]
         question = crud.get_question(uid)
-        bot.send_message(chat_id=question.chat_id, text=message.text)
+        text = "Ответ на вопрос:\n"
+        text += message.text
+        await bot.send_message(chat_id=question.chat_id, text=text)
         print('3')
     print('4')
